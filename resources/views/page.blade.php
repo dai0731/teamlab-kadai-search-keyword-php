@@ -42,15 +42,18 @@
       </tr>
       </thead>
       <tbody>
-      @foreach($userPages as $userPage)
-      <tr>
-        <td>{{ isset($userPage['user_id']) ? $userPage['user_id'] : '' }}</td>
-        <td>{{ isset($userPage['user_name']) ? $userPage['user_name'] : '' }}</td>
-        <td>{{ isset($userPage['page_id']) ? $userPage['page_id'] : '' }}</td>
-        <td>{{ isset($userPage['page_title']) ? $userPage['page_title'] : '' }}</td>
-        <td>{{ isset($userPage['view_count']) ? $userPage['view_count'] : '' }}</td>
-      </tr>
-      @endforeach
+      {{-- 検索結果がなかった場合、非表示 --}}
+      @if(!empty($userPages[0]))
+        @foreach($userPages as $userPage)
+        <tr>
+          <td>{{ isset($userPage['user_id']) ? $userPage['user_id'] : '' }}</td>
+          <td>{{ isset($userPage['user_name']) ? $userPage['user_name'] : '' }}</td>
+          <td>{{ isset($userPage['page_id']) ? $userPage['page_id'] : '' }}</td>
+          <td>{{ isset($userPage['page_title']) ? $userPage['page_title'] : '' }}</td>
+          <td>{{ isset($userPage['view_count']) ? $userPage['view_count'] : '' }}</td>
+        </tr>
+        @endforeach
+      @endif
       </tbody>
     </table>
   </div>

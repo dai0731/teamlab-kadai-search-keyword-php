@@ -1,135 +1,72 @@
-# チームラボ選考課題
+## チューニング内容
 
-このリポジトリで動作するサンプルアプリケーションのキーワード検索機能を、  
-可能な限りチューニングして結果が速く表示されるようにしてください  
-※ サンプルは何もしないとまともに動作しません
+下記、ディレクトリの関数内でデータ取得方法を修正
 
-## 検索仕様
+<b>[ディレクトリと関数]</b>
+ディレクトリ : /app/Http/Libs/PageUtility.php
+関数 : findUserViewedPage($keyword)
 
-<b>page</b> テーブルの <b>title</b> カラムを前方一致でキーワード検索し、
+<b>[データ取得方法]</b>
 
-* ユーザID
-* ユーザ名
-* ページID
-* ページタイトル
-* 閲覧数
+<b>(1)</b> キーワードからページIDとページタイトルを取得
 
-を 第1ソート：**ユーザID(昇順)**、第2ソート：**ページID(昇順)** で10件取得してください
-
-## 制限
-
-* 表示される項目や結果の順番が変わらないこと
-* memcached等、キャッシュサーバを用いないこと
-* controllerパッケージは修正しないこと
-* キーワード「あり/なし」どちらの場合も考慮すること
-
-## 評価方法
-
-* チューニングした結果の検索速度を評価対象とします
-    * 公平を期すため弊社で用意した計測用サーバで速度の検証をします
-    * 計測用サーバのメモリは<b>2G</b>のものを用意しています
-
-## 提出方法
-
-* このリポジトリをクローンし、ご自身のgithub.com にプッシュしてリポジトリのURLを提出してください
-    * 【例】https://github.com/team-lab/teamlab-kadai-search-keyword-php
-    * 差分が分かるようにこのサンプルのコミットと自分がチューニングしたコミットは分けてください
-    * README.md ファイルを作成し、チューニングした内容を説明してください
-
-## サンプルアプリケーションの説明
-
-### フォルダ構成(一部抜粋)
-```
-.
-├── .env                        ・・・設定ファイル
-├── Dockerfile
-├── app
-│   ├── Http
-│   │   ├── Controllers         ・・・コントローラー
-│   │   │   ├── Controller.php
-│   │   │   └── IndexController.php
-│   │   └── Models              ・・・モデル
-│   │       ├── Activity.php
-│   │       ├── Page.php
-│   │       └── User.php
-│   └── Libs                    ・・・ユーティリティ
-│       └── PageUtility.php
-├── composer.json
-├── config
-│   └── app.php
-├── database
-│   └── sql
-│       ├── alter.sql           ・・・修正用SQL
-│       ├── config
-│       │   └── my.cnf          ・・・MySQL設定
-│       └── init
-│           └── mydb.sql        ・・・DB初期化ファイル
-├── docker-compose.yml
-├── package.json
-├── public
-│   └── index.php
-├── resources
-│   └── views                   ・・・ビュー
-│       ├── index.blade.php
-│       └── page.blade.php
-├── routes
-│   └── web.php
-└── startup.sh                  ・・・初期化スクリプト
+```c
+$pages = Page::where('title', 'LIKE', "$keyword%")->get();
 ```
 
-### 開発環境
+<b>(2)</b> (1)で取得したページIDからユーザID、閲覧数取得
 
-* 言語: PHP 7.1
-* フレームワーク: Laravel 5.5
-* データベース: MySQL
-* コンテナ: Docker
-
-### データベース構成
-
-![er](https://user-images.githubusercontent.com/342957/31817043-7d1a2040-b5cd-11e7-928d-205952d75b35.png)
-
-* page 150万件
-   * ページ情報を格納するテーブルです。
-* user 1万件
-   * ユーザ情報を格納するテーブルです。
-* activity 10万件
-   * ユーザの閲覧履歴を格納するテーブルです。
-
-### ローカル環境構築
-
-#### 1. 課題ソースコードクローン
-* Macbook: Dockerはデフォルト“/Users”, “/Volumes”, “/tmp”, “/private”のディレクトリを参考できるので、その下においてください。
-```
-git clone https://github.com/team-lab/teamlab-kadai-search-keyword-php.git
+```c
+$activities = Activity::select(DB::raw("user_id as user_id,
+                                        page_id as page_id,
+                                        count(id) as view_count"))
+                       ->where('page_id',  $pages_value['id'])
+                       ->groupby('user_id', 'page_id')
+                       ->get();
 ```
 
-#### 2. Docker インストール手順
+<b>(3)</b> (2)で取得したユーザーIDからユーザ名を取得
 
-* Macbook: Docker for Macのインストール
-    * 以下のURLより Docker for Mac をダウンロードしてインストールします
-    * https://download.docker.com/mac/stable/Docker.dmg
-* Window: Docker for Windowのインストール
-    * 以下のURLより Docker for Mac をダウンロードしてインストールします
-    * https://download.docker.com/win/stable/Docker%20for%20Windows%20Installer.exe
-* Docker インストールした後、動作確認方法<br>
- 
-```
-docker --version
-docker-compose --version
-docker-machine --version
+```c
+$user_name = User::where('id', $activities_value['user_id'])->get();
 ```
 
-エラーが出なければ、Dockerのインストールは成功です！
+<b>(4)</b> (1),(2),(3)で取得したデータを配列に格納
 
-#### 3. アプリケーションの起動
+```c
+$userPageArray[$i]['page_id']    = $pages_value['id'];
+$userPageArray[$i]['page_title'] = $pages_value['title'];
+$userPageArray[$i]['user_id']    = $activities_value['user_id'];
+$userPageArray[$i]['user_name']  = $user_name[0]->name;
+$userPageArray[$i]['view_count'] = $activities_value['view_count'];
+// iは取得したデータ数
+```
 
-課題ソースコードのディレクトリで下記コマンドを実行してください
-```
-docker-compose up
-```
-※起動毎に「mydb.sql」「alter.sql」が実行されます。
+<b>(5)</b> (2)の返り値が空だった場合は配列にユーザID、ユーザ名、閲覧数を空で格納
 
+```c
+$userPageArray[$i]['page_id']    = $pages_value['id'];
+$userPageArray[$i]['page_title'] = $pages_value['title'];
+$userPageArray[$i]['user_id']    = '';
+$userPageArray[$i]['user_name']  = '';
+$userPageArray[$i]['view_count'] = '';
 ```
-app_1  | Laravel development server started: <http://0.0.0.0:8080>
+
+<b>(6)</b> データ格納後、ユーザーID(第1優先 / 昇順)、ページID(第2優先 / 昇順)にソート
+
+```c
+array_multisort(array_column($userPageArray, 'user_id'), SORT_ASC, SORT_NUMERIC,
+                array_column($userPageArray, 'page_id'), SORT_ASC, SORT_NUMERIC,
+                $userPageArray);
 ```
-が表示されたら、ブラウザで http://localhost:8080 確認。
+
+
+※ キーワードが空で検索された場合は **findUserViewedPage($keyword)** の関数を実行せず、空の配列をviewに渡す
+
+※ index追加
+```c
+ALTER TABLE page ADD INDEX title(title);
+ALTER TABLE activity ADD INDEX page_id (page_id);
+ALTER TABLE activity ADD INDEX groupby_index (page_id, user_id);
+```
+database/sql/alter.sqlに記載
